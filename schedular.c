@@ -11,10 +11,10 @@
 #define SJF 23
 #define PSJF 22
 
-int last_t;
-int running_proc_idx;
-int n_t;
-int fin_proc_cnt;
+static int last_t;
+static int running_proc_idx;
+static int n_t;
+static int fin_proc_cnt;
 
 int next_proc(struct a_process *procs,int n_proc ,int policy);
 int cmp(const void *a, const void *b) {
@@ -44,7 +44,7 @@ void schedule(struct a_process *procs,int n_proc ,int policy){
 	while(1){
 		if(running_proc_idx != -1 && procs[running_proc_idx].exec_t==0){
 			waitpid(procs[running_proc_idx].pid,NULL,0);
-			printf("%s %d\n", procs[running_proc_idx].name,procs[running_proc_idx].pid);
+			//printf("%s %d\n", procs[running_proc_idx].name,procs[running_proc_idx].pid);
 			running_proc_idx = -1;
 			fin_proc_cnt++;
 			//printf("fin_cnt=%d n_proc=%d\n", fin_proc_cnt,n_proc);
@@ -60,6 +60,7 @@ void schedule(struct a_process *procs,int n_proc ,int policy){
 				
 				if(pid==0){
 					unsigned long start_t,start_nt,end_t,end_nt;
+					printf("%s %d\n", procs[i].name,getpid());
 					char buf_tok[256];
 					struct timespec t;
 					syscall(GETTIME,&t);
@@ -79,7 +80,6 @@ void schedule(struct a_process *procs,int n_proc ,int policy){
 				CPU_ZERO(&mask);
 				CPU_SET(1, &mask);
 				sched_setaffinity(pid, sizeof(mask), &mask);
-			
 				procs[i].pid=pid;
 				param.sched_priority = 0;
 				sched_setscheduler(procs[i].pid, SCHED_IDLE, &param);
@@ -87,6 +87,7 @@ void schedule(struct a_process *procs,int n_proc ,int policy){
 		}
 
 		int next_proc_idx = next_proc(procs,n_proc,policy);
+		
 		if(running_proc_idx!=next_proc_idx && next_proc_idx!= -1){//context switch
 			param.sched_priority = 0;
 			sched_setscheduler(procs[next_proc_idx].pid, SCHED_OTHER, &param);
@@ -99,7 +100,7 @@ void schedule(struct a_process *procs,int n_proc ,int policy){
 		}
 
 		unit_t();
-		if(procs[running_proc_idx].pid!=-1)
+		if(running_proc_idx!=-1)
 			procs[running_proc_idx].exec_t--;
 
 		n_t++;
@@ -158,14 +159,20 @@ int next_proc(struct a_process *procs,int n_proc ,int policy){
 					return i;
 				}
 			}
+			return running_proc_idx;
 		}
 		else if((n_t-last_t)%500 == 0){
 			int idx = (running_proc_idx+1)%n_proc;
-			while(procs[idx].pid==-1 || procs[idx].exec_t <=0)
+			while(procs[idx].pid==-1 || procs[idx].exec_t <=0){
 				idx = (idx+1)%n_proc;
+				//printf("oops\n");
+			}
+
 			return idx;
 		}
-		else
+		else{
+
 			return running_proc_idx;
+		}
 	}
 }

@@ -16,7 +16,6 @@ static int running_proc_idx;
 static int n_t;
 static int fin_proc_cnt;
 
-int next_proc(struct a_process *procs,int n_proc ,int policy);
 int cmp(const void *a, const void *b) {
 	return ((struct a_process *)a)->ready_t - ((struct a_process *)b)->ready_t;
 }
@@ -24,8 +23,10 @@ int cmp(const void *a, const void *b) {
 
 void schedule(struct a_process *procs,int n_proc ,int policy){
 	qsort(procs,n_proc,sizeof(struct a_process),cmp);
-	for (int i = 0; i < n_proc; i++)
+	for (int i = 0; i < n_proc; i++){
 		procs[i].pid = -1;
+		procs[i].requ_t = procs[i].ready_t;
+	}
 
 	cpu_set_t mask;
 	CPU_ZERO(&mask);
@@ -92,6 +93,7 @@ void schedule(struct a_process *procs,int n_proc ,int policy){
 			param.sched_priority = 0;
 			sched_setscheduler(procs[next_proc_idx].pid, SCHED_OTHER, &param);
 			if(running_proc_idx!=-1){
+				//procs[running_proc_idx].requ_t = 
 				param.sched_priority = 0;
 				sched_setscheduler(procs[running_proc_idx].pid, SCHED_IDLE, &param);
 			}
@@ -162,13 +164,16 @@ int next_proc(struct a_process *procs,int n_proc ,int policy){
 			return running_proc_idx;
 		}
 		else if((n_t-last_t)%500 == 0){
-			int idx = (running_proc_idx+1)%n_proc;
-			while(procs[idx].pid==-1 || procs[idx].exec_t <=0){
-				idx = (idx+1)%n_proc;
-				//printf("oops\n");
+			procs[running_proc_idx].requ_t = n_t;
+			int long_requ_idx=-1;
+			for(int i=0;i<n_proc;i++){
+				if(procs[i].pid==-1 || procs[i].exec_t <=0)
+					continue;
+				if(long_requ_idx == -1 || procs[i].requ_t < procs[long_requ_idx].requ_t)
+					long_requ_idx = i;
 			}
 
-			return idx;
+			return long_requ_idx;
 		}
 		else{
 
